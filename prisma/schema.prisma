@@ -1,0 +1,913 @@
+// Placeholder to prevent invalid tool call. I will read schema first.
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Core Master Tables
+model Company {
+  id          Int      @id @default(autoincrement())
+  name        String
+  gstin       String   @unique
+  pan         String?  @unique
+  address     String?
+  state       String?
+  stateCode   String?
+  phone       String?
+  email       String?
+  website     String?
+  bankName    String?
+  bankAccount String?
+  ifsc        String?
+  branch      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  parties         Party[]
+  deliveryPlaces  DeliveryPlace[]
+  vehicles        Vehicle[]
+  jobCards        JobCard[]
+  taxInvoices     TaxInvoice[]
+  yarnReceipts    YarnReceipt[]
+  yarnReturns     YarnReturn[]
+  yarnDeliveries  YarnDelivery[]
+  
+  @@map("companies")
+}
+
+model Party {
+  id                 Int      @id @default(autoincrement())
+  companyId          Int
+  partyName          String
+  gstin              String?  @unique
+  pan                String?
+  address            String?
+  state              String?
+  stateCode          String?
+  phone              String?
+  email              String?
+  organizationType   String?
+  bankName           String?
+  bankAccount        String?
+  ifsc               String?
+  branch             String?
+  noOfLooms          Int?
+  commissionPerBag   Float?
+  commissionPercent  Float?
+  dueDays            Int      @default(0)
+  ledgerTypeId       Int?
+  accountGroupId     Int?
+  accountMaintenance String?  // 'Balance Only' or 'Bill to Bill'
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  company         Company         @relation(fields: [companyId], references: [id])
+  ledgerType      LedgerType?     @relation(fields: [ledgerTypeId], references: [id])
+  accountGroup    AccountGroup?   @relation(fields: [accountGroupId], references: [id])
+  jobCards        JobCard[]
+  taxInvoices     TaxInvoice[]
+  yarnReceipts    YarnReceipt[]
+  yarnReturns     YarnReturn[]
+  yarnDeliveries  YarnDelivery[]
+  sizingCharges   SizingCharge[]
+  deliveredToInvoices TaxInvoice[] @relation("InvoiceDeliveredTo")
+  
+  @@map("parties")
+}
+
+model LedgerType {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  parties Party[]
+  
+  @@map("ledger_types")
+}
+
+model AccountGroup {
+  id          Int      @id @default(autoincrement())
+  groupName   String
+  parentGroupId Int?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  parent   AccountGroup?  @relation("AccountGroupHierarchy", fields: [parentGroupId], references: [id])
+  children AccountGroup[] @relation("AccountGroupHierarchy")
+  parties  Party[]
+  
+  @@map("account_groups")
+}
+
+model DeliveryPlace {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  placeName   String
+  address     String?
+  contact     String?
+  phone       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  company     Company      @relation(fields: [companyId], references: [id])
+  taxInvoices TaxInvoice[]
+  
+  @@map("delivery_places")
+}
+
+model Count {
+  id          Int      @id @default(autoincrement())
+  countNumber String   @unique
+  countName   String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  ends End[]
+  
+  @@map("counts")
+}
+
+model End {
+  id          Int      @id @default(autoincrement())
+  endNumber   Int
+  countId     Int
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  count Count @relation(fields: [countId], references: [id])
+  
+  @@map("ends")
+}
+
+model Unit {
+  id               Int      @id @default(autoincrement())
+  unitName         String
+  unitSymbol       String?
+  description      String?
+  unitType         String?  // 'Weight', 'Length', 'Count', etc.
+  conversionFactor Float?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  
+  @@map("units")
+}
+
+model Tax {
+  id           Int      @id @default(autoincrement())
+  taxName      String
+  rate         Float
+  taxType      String?  // 'CGST', 'SGST', 'IGST'
+  isActive     Boolean  @default(true)
+  effectiveFrom DateTime
+  effectiveTo  DateTime?
+  createdAt    DateTime @default(now())
+  
+  @@map("taxes")
+}
+
+model LoomType {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  description   String?
+  chargePerBeam Float?
+  chargePerKg   Float?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  // Relations
+  jobCards JobCard[]
+  
+  @@map("loom_types")
+}
+
+model Vehicle {
+  id           Int      @id @default(autoincrement())
+  vehicleNo    String   @unique
+  vehicleType  String?
+  driverName   String?
+  driverPhone  String?
+  driverLicense String?
+  companyId    Int?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  company       Company?       @relation(fields: [companyId], references: [id])
+  taxInvoices   TaxInvoice[]
+  yarnReceipts  YarnReceipt[]
+  yarnReturns   YarnReturn[]
+  yarnDeliveries YarnDelivery[]
+  
+  @@map("vehicles")
+}
+
+model Beam {
+  id             Int      @id @default(autoincrement())
+  beamNo         String   @unique
+  grossWeight    Float
+  tareWeight     Float
+  yarnWeight     Float    @default(0) // Computed: grossWeight - tareWeight
+  status         String   @default("IN") // IN, OUT, MAINTENANCE
+  currentLocation String?
+  lastUsedDate   DateTime?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt()
+  
+  @@map("beams")
+}
+
+model SizingCharge {
+  id            Int      @id @default(autoincrement())
+  partyId       Int
+  chargePerKg   Float
+  chargePerBeam Float?
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  // Relations
+  party Party @relation(fields: [partyId], references: [id])
+  
+  @@map("sizing_charges")
+}
+
+// Transaction Tables
+model JobCard {
+  id                   Int      @id @default(autoincrement())
+  setNo                String   @unique
+  date                 DateTime // Original date (legacy)
+  warpingDate          DateTime? // Separate warping date
+  sizingDate           DateTime? // Separate sizing date
+  companyId            Int
+  partyId              Int
+  loomTypeId           Int?
+  millName             String?
+  count                String?
+  ends                 Int?
+  tapeLength           String?
+  beamWidth            String?
+  mark                 String?
+  avgCount             Float?
+  excess               Float?
+  warpingMetres        Float?
+  pickupPercentage     Float?
+  elongationPercentage Float?
+  yarnTakenKg          Float?
+  remarks              String?  @db.Text
+  status               String   @default("PENDING") // PENDING, WARPING, SIZING, COMPLETED, INVOICED
+  preparedBy           String?
+  checkedBy            String?
+  gmSign               String?
+  authorizedSign       String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  company            Company              @relation(fields: [companyId], references: [id])
+  party              Party                @relation(fields: [partyId], references: [id])
+  loomType           LoomType?            @relation(fields: [loomTypeId], references: [id])
+  beamDetails        JobCardBeam[]
+  sizingDetails      JobCardSizingDetail[]
+  deliveryDetails    JobCardDeliveryDetail[]
+  babyConeDetails    BabyConeDetail[]
+  yarnStockTransactions YarnStockTransaction[]
+  warpingCard        WarpingJobCard?
+  sizingCard         SizingJobCard?
+  
+  @@map("job_cards")
+}
+
+model JobCardBeam {
+  id              Int      @id @default(autoincrement())
+  jobCardId       Int
+  beamNo          String?
+  grossWeight     Float?
+  tareWeight      Float?
+  netWeight       Float?   // Computed: grossWeight - tareWeight
+  breaks          Int?
+  meter           Float?
+  pieces          Int?
+  clothMetres     Float?
+  readingMetres   Float?
+  timeStart       String?
+  timeFinish      String?
+  sizer           String?
+  backSizer       String?
+  pickUps         String?
+  vendorName      String?
+  sizingComb      String?
+  sizeBox         String?
+  warpBeam        String?
+  cylinder        String?
+  rpm             Float?
+  warperName      String?
+  beamCount       String?
+  createdAt       DateTime @default(now())
+
+  // Relations
+  jobCard JobCard @relation(fields: [jobCardId], references: [id])
+  
+  @@map("job_card_beams")
+}
+
+model JobCardSizingDetail {
+  id          Int      @id @default(autoincrement())
+  jobCardId   Int
+  no          Int?
+  ends        Int?
+  grossWeight Float?
+  netWeight   Float?
+  breaks      Int?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  jobCard JobCard @relation(fields: [jobCardId], references: [id])
+  
+  @@map("job_card_sizing_details")
+}
+
+model JobCardDeliveryDetail {
+  id           Int      @id @default(autoincrement())
+  jobCardId    Int
+  no           Int?
+  beamNo       String?
+  grossWeight  Float?
+  tareWeight   Float?
+  netWeight    Float?   // Computed: grossWeight - tareWeight
+  pieces       Int?
+  metre        Float?
+  dcNo         String?
+  deliveryTo   String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  jobCard JobCard @relation(fields: [jobCardId], references: [id])
+  
+  @@map("job_card_delivery_details")
+}
+
+model BabyConeDetail {
+  id            Int      @id @default(autoincrement())
+  jobCardId     Int?
+  yarnReceiptId Int?
+  yarnReturnId  Int?
+  yarnDeliveryId Int?
+  bags          Int?
+  cones         Int?
+  weight        Float?
+  materialName  String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  jobCard     JobCard?     @relation(fields: [jobCardId], references: [id])
+  yarnReceipt YarnReceipt? @relation(fields: [yarnReceiptId], references: [id])
+  yarnReturn  YarnReturn?  @relation(fields: [yarnReturnId], references: [id])
+  yarnDelivery YarnDelivery? @relation(fields: [yarnDeliveryId], references: [id])
+  
+  @@map("baby_cone_details")
+}
+
+model YarnStockTransaction {
+  id            Int      @id @default(autoincrement())
+  jobCardId     Int?
+  yarnReceiptId Int?
+  yarnReturnId  Int?
+  yarnDeliveryId Int?
+  type          String   // IN, OUT, ADJUST
+  qtyKg         Float?
+  balanceKg     Float?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  jobCard     JobCard?     @relation(fields: [jobCardId], references: [id])
+  yarnReceipt YarnReceipt? @relation(fields: [yarnReceiptId], references: [id])
+  yarnReturn  YarnReturn?  @relation(fields: [yarnReturnId], references: [id])
+  yarnDelivery YarnDelivery? @relation(fields: [yarnDeliveryId], references: [id])
+  
+  @@map("yarn_stock_transactions")
+}
+
+model YarnReceipt {
+  id            Int      @id @default(autoincrement())
+  receiptNo     String   @unique
+  receiptDate   DateTime
+  pdcNo         String?
+  companyId     Int
+  partyId       Int
+  vehicleId     Int?
+  totalBags     Int      @default(0)
+  totalCones    Int      @default(0)
+  totalWeight   Float    @default(0)
+  receivedBy    String?
+  preparedBy    String?
+  checkedBy     String?
+  gmSign        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  company        Company          @relation(fields: [companyId], references: [id])
+  party          Party            @relation(fields: [partyId], references: [id])
+  vehicle        Vehicle?         @relation(fields: [vehicleId], references: [id])
+  items          YarnReceiptItem[]
+  babyConeDetails BabyConeDetail[]
+  yarnStockTransactions YarnStockTransaction[]
+  
+  @@map("yarn_receipts")
+}
+
+model YarnReceiptItem {
+  id            Int      @id @default(autoincrement())
+  yarnReceiptId Int
+  sNo           Int?
+  millName      String?
+  lotNo         String?
+  count         String?
+  bags          Int?
+  cones         Int?
+  weightPerCone Float?
+  weight        Float?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  yarnReceipt YarnReceipt @relation(fields: [yarnReceiptId], references: [id])
+  
+  @@map("yarn_receipt_items")
+}
+
+model YarnReturn {
+  id               Int      @id @default(autoincrement())
+  dcNo             String   @unique
+  dcDate           DateTime
+  companyId        Int
+  partyId          Int
+  vehicleId        Int?
+  isDirectDelivery Boolean  @default(false)
+  totalBags        Int      @default(0)
+  totalCones       Int      @default(0)
+  totalWeight      Float    @default(0)
+  notes            String?
+  receiversSignature String?
+  preparedBy       String?
+  checkedBy        String?
+  gmSign            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  company        Company          @relation(fields: [companyId], references: [id])
+  party          Party            @relation(fields: [partyId], references: [id])
+  vehicle        Vehicle?         @relation(fields: [vehicleId], references: [id])
+  items          YarnReturnItem[]
+  babyConeDetails BabyConeDetail[]
+  yarnStockTransactions YarnStockTransaction[]
+  
+  @@map("yarn_returns")
+}
+
+model YarnReturnItem {
+  id            Int      @id @default(autoincrement())
+  yarnReturnId  Int
+  type          String?
+  setNo         String?
+  millName      String?
+  count         String?
+  hsn           String?
+  bags          Int?
+  cones         Int?
+  weight        Float?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  yarnReturn YarnReturn @relation(fields: [yarnReturnId], references: [id])
+  
+  @@map("yarn_return_items")
+}
+
+model YarnDelivery {
+  id            Int      @id @default(autoincrement())
+  dcNo          String   @unique
+  date          DateTime
+  companyId     Int
+  partyId       Int
+  vehicleId     Int?
+  totalBags     Int      @default(0)
+  totalCones    Int      @default(0)
+  totalWeight   Float    @default(0)
+  totalRate     Float    @default(0)
+  totalAmount   Float    @default(0)
+  taxableValue  Float    @default(0)
+  notes         String?
+  receiverSign  String?
+  preparedBy    String?
+  checkedBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  company        Company          @relation(fields: [companyId], references: [id])
+  party          Party            @relation(fields: [partyId], references: [id])
+  vehicle        Vehicle?         @relation(fields: [vehicleId], references: [id])
+  items          YarnDeliveryItem[]
+  babyConeDetails BabyConeDetail[]
+  yarnStockTransactions YarnStockTransaction[]
+  
+  @@map("yarn_deliveries")
+}
+
+model YarnDeliveryItem {
+  id             Int      @id @default(autoincrement())
+  yarnDeliveryId Int
+  no             Int?
+  type           String?
+  millName       String?
+  count          String?
+  bags           Int?
+  cones          Int?
+  weight         Float?
+  rate           Float?
+  amount         Float?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  yarnDelivery YarnDelivery @relation(fields: [yarnDeliveryId], references: [id])
+  
+  @@map("yarn_delivery_items")
+}
+
+model TaxInvoice {
+  id                   Int      @id @default(autoincrement())
+  invoiceNo            String   @unique
+  ackNo                String?
+  invoiceDate          DateTime
+  ackDate              DateTime?
+  irn                  String?
+  reverseCharge        Boolean  @default(false)
+  companyId           Int
+  partyId              Int
+  deliveredToPartyId   Int?
+  setNo                String?
+  ends                 Int?
+  count                String?
+  meters               Float?
+  taxableAmount        Float    @default(0)
+  cgst                 Float    @default(0)
+  sgst                 Float    @default(0)
+  igst                 Float    @default(0)
+  roundOff             Float    @default(0)
+  netAmount            Float    @default(0)
+  amountInWords        String?
+  paymentTerms         String?
+  vehicleId            Int?
+  deliveryPlaceId      Int?
+  jurisdiction         String?
+  preparedBy           String?
+  checkedBy            String?
+  authorizedSignatory  String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  company         Company           @relation(fields: [companyId], references: [id])
+  party           Party             @relation(fields: [partyId], references: [id])
+  deliveredToParty Party?           @relation("InvoiceDeliveredTo", fields: [deliveredToPartyId], references: [id])
+  vehicle         Vehicle?          @relation(fields: [vehicleId], references: [id])
+  deliveryPlace   DeliveryPlace?    @relation(fields: [deliveryPlaceId], references: [id])
+  items           TaxInvoiceItem[]
+  bankDetails     InvoiceBankDetail[]
+  
+  @@map("tax_invoices")
+}
+
+model TaxInvoiceItem {
+  id           Int      @id @default(autoincrement())
+  invoiceId    Int
+  sNo          Int?
+  description  String?
+  hsnSac       String?
+  quantity     Float?
+  rate         Float?
+  amount       Float?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  taxInvoice TaxInvoice @relation(fields: [invoiceId], references: [id])
+  
+  @@map("tax_invoice_items")
+}
+
+model InvoiceBankDetail {
+  id         Int      @id @default(autoincrement())
+  invoiceId  Int
+  accountNo  String?
+  bankName   String?
+  branch     String?
+  ifsc       String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  taxInvoice TaxInvoice @relation(fields: [invoiceId], references: [id])
+  
+  @@map("invoice_bank_details")
+}
+
+// Supporting Tables
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  phone        String?
+  roleId       Int?
+  isActive     Boolean  @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  role       Role?      @relation(fields: [roleId], references: [id])
+  auditLogs  AuditLog[]
+  
+  @@map("users")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  roleName    String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  users User[]
+  
+  @@map("roles")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?
+  tableName  String
+  action     String   // INSERT, UPDATE, DELETE
+  keyValue   String?
+  oldValues  String?
+  newValues  String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+  
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          Int      @id @default(autoincrement())
+  settingKey  String   @unique
+  settingValue String?
+  description String?
+  category    String?
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_settings")
+}
+
+model GSTApiConfig {
+  id          Int      @id @default(autoincrement())
+  providerName String?
+  apiKey      String?
+  apiUrl      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("gst_api_configs")
+}
+
+// ============================================
+// COMPREHENSIVE WARPING & SIZING CARDS
+// (Link to existing JobCard model)
+// ============================================
+
+// WARPING JOB CARD (KARL MAYER)
+model WarpingJobCard {
+  id              Int       @id @default(autoincrement())
+  jobCardId       Int       @unique
+  date            DateTime
+  lengthInMtrs    Decimal   @db.Decimal(12, 3)
+  machineNo       String?
+  lotNo           String?
+  coneWeight      Decimal?  @db.Decimal(10, 3)
+  preCheck        String?
+  
+  // Summary fields
+  totalWarpBreaks Int?
+  breaksPerMillion Decimal? @db.Decimal(10, 3)
+  fullBagsTaken   Int?
+  runOutConeTaken Int?
+  totalYarnNWT    Decimal?  @db.Decimal(12, 3)
+  warpNWT         Decimal?  @db.Decimal(12, 3)
+  cutConeNWT      Decimal?  @db.Decimal(12, 3)
+  excessShortage  Decimal?  @db.Decimal(10, 3)
+  
+  remarks         String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  jobCard         JobCard   @relation(fields: [jobCardId], references: [id])
+  beams           WarpingBeam[]
+  runOutCones     WarpingRunOutCone[]
+  remnants        WarpingRemnant[]
+  
+  @@map("warping_job_cards")
+}
+
+model WarpingBeam {
+  id              Int       @id @default(autoincrement())
+  warpingCardId   Int
+  sno             Int
+  beamNo          String
+  metre           Decimal   @db.Decimal(12, 3)
+  ends            Int
+  grossWeight     Decimal   @db.Decimal(10, 3)
+  tareWeight      Decimal   @db.Decimal(10, 3)
+  netWeight       Decimal   @db.Decimal(10, 3)
+  startTime       DateTime?
+  finishTime      DateTime?
+  rpm             Int?
+  warperName      String?
+  breaks          Int?
+  beamCount       Int?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  warpingCard     WarpingJobCard @relation(fields: [warpingCardId], references: [id], onDelete: Cascade)
+  
+  @@map("warping_beams")
+}
+
+model WarpingRunOutCone {
+  id              Int       @id @default(autoincrement())
+  warpingCardId   Int
+  sno             Int
+  creelingCones   Int?
+  runOutWeight    Decimal?  @db.Decimal(10, 3)
+  coneCount       Int?
+  netWeight       Decimal?  @db.Decimal(10, 3)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  warpingCard     WarpingJobCard @relation(fields: [warpingCardId], references: [id], onDelete: Cascade)
+  
+  @@map("warping_run_out_cones")
+}
+
+model WarpingRemnant {
+  id              Int       @id @default(autoincrement())
+  warpingCardId   Int
+  sno             Int
+  noOfCones       Int
+  grossWeight     Decimal   @db.Decimal(10, 3)
+  netWeight       Decimal   @db.Decimal(10, 3)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  warpingCard     WarpingJobCard @relation(fields: [warpingCardId], references: [id], onDelete: Cascade)
+  
+  @@map("warping_remnants")
+}
+
+// SIZING JOB CARD (ORANGE SIZING UNIT)
+model SizingJobCard {
+  id              Int       @id @default(autoincrement())
+  jobCardId       Int       @unique
+  date            DateTime
+  machineName     String?
+  setLength       Decimal   @db.Decimal(12, 3)
+  markWheel       String?
+  mark            String?
+  tapeLength      Decimal?  @db.Decimal(10, 3)
+  beamWidth       Decimal   @db.Decimal(10, 2) // in inches
+  noOfBeams       Int
+  rf              String?
+  viscosity       Decimal?  @db.Decimal(10, 3)
+  preCheck        String?
+  pickUp          Decimal?  @db.Decimal(10, 3)
+  elongation      Decimal?  @db.Decimal(10, 3)
+  elongationPercent Decimal? @db.Decimal(6, 3)
+  avgPickUpPercent Decimal? @db.Decimal(6, 3)
+  
+  // Waste fields
+  frontWaste      Decimal?  @db.Decimal(10, 3)
+  backWaste       Decimal?  @db.Decimal(10, 3)
+  
+  remarks         String?   @db.Text
+  
+  // Signatures
+  shiftSupervisor String?
+  checkedBy       String?
+  manager         String?
+  sizerSign       String?
+  mdSign          String?
+  fmSign          String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  jobCard         JobCard   @relation(fields: [jobCardId], references: [id])
+  beams           SizingBeam[]
+  shiftDetails    SizingShift[]
+  materials       SizingMaterial[]
+  
+  @@map("sizing_job_cards")
+}
+
+model SizingBeam {
+  id              Int       @id @default(autoincrement())
+  sizingCardId    Int
+  frontRear       String?   // F or R
+  sno             Int
+  beamNo          String
+  clothMetres     Decimal   @db.Decimal(12, 3)
+  pcs             Int?
+  grossWeight     Decimal   @db.Decimal(10, 3)
+  tareWeight      Decimal   @db.Decimal(10, 3)
+  netWeight       Decimal   @db.Decimal(10, 3)
+  readingMetres   Decimal?  @db.Decimal(12, 3)
+  startTime       DateTime?
+  finishTime      DateTime?
+  sizerName       String?
+  backSizer       String?
+  pickUps         Decimal?  @db.Decimal(10, 3)
+  vendorName      String?
+  sizingComb      String?
+  sizeBox         String?
+  warpBeam        String?
+  cylinder        String?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  sizingCard      SizingJobCard @relation(fields: [sizingCardId], references: [id], onDelete: Cascade)
+  
+  @@map("sizing_beams")
+}
+
+model SizingShift {
+  id              Int       @id @default(autoincrement())
+  sizingCardId    Int
+  shiftName       String    // Day, Night, etc.
+  pavu            Decimal?  @db.Decimal(10, 3)
+  mtr             Decimal?  @db.Decimal(12, 3)
+  kg              Decimal?  @db.Decimal(10, 3)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  sizingCard      SizingJobCard @relation(fields: [sizingCardId], references: [id], onDelete: Cascade)
+  
+  @@map("sizing_shifts")
+}
+
+model SizingMaterial {
+  id              Int       @id @default(autoincrement())
+  sizingCardId    Int
+  materialName    String    // maize, beans, binders, etc.
+  weight          Decimal   @db.Decimal(10, 3)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  sizingCard      SizingJobCard @relation(fields: [sizingCardId], references: [id], onDelete: Cascade)
+  
+  @@map("sizing_materials")
+}
